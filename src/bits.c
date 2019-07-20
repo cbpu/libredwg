@@ -379,7 +379,11 @@ bit_read_RS (Bit_Chain *dat)
   // least significant byte first:
   byte1 = bit_read_RC (dat);
   byte2 = bit_read_RC (dat);
+#ifdef WORDS_BIGENDIAN
+  return (BITCODE_RS) ((byte1 << 8) | byte2);
+#else
   return (BITCODE_RS) ((byte2 << 8) | byte1);
+#endif
 }
 
 /** Read 1 raw short little-endian.
@@ -390,7 +394,11 @@ bit_read_RS_LE (Bit_Chain *dat)
   unsigned char byte1, byte2;
   byte1 = bit_read_RC (dat);
   byte2 = bit_read_RC (dat);
+#ifdef WORDS_BIGENDIAN
+  return (BITCODE_RS) ((byte2 << 8) | byte1);
+#else
   return (BITCODE_RS) ((byte1 << 8) | byte2);
+#endif
 }
 
 /** Write 1 raw short (BE short).
@@ -398,9 +406,14 @@ bit_read_RS_LE (Bit_Chain *dat)
 void
 bit_write_RS (Bit_Chain *dat, BITCODE_RS value)
 {
+#ifdef WORDS_BIGENDIAN
+  bit_write_RC (dat, value >> 8);
+  bit_write_RC (dat, value & 0xFF);
+#else
   // least significant byte first:
   bit_write_RC (dat, value & 0xFF);
   bit_write_RC (dat, value >> 8);
+#endif
 }
 
 /** Write 1 raw short little-endian.
@@ -408,8 +421,13 @@ bit_write_RS (Bit_Chain *dat, BITCODE_RS value)
 void
 bit_write_RS_LE (Bit_Chain *dat, BITCODE_RS value)
 {
+#ifdef WORDS_BIGENDIAN
+  bit_write_RC (dat, value & 0xFF);
+  bit_write_RC (dat, value >> 8);
+#else
   bit_write_RC (dat, value >> 8);
   bit_write_RC (dat, value & 0xFF);
+#endif
 }
 
 /** Read 1 raw long (4 byte, BE).
@@ -422,7 +440,11 @@ bit_read_RL (Bit_Chain *dat)
   // least significant word first
   word1 = bit_read_RS (dat);
   word2 = bit_read_RS (dat);
+#ifdef WORDS_BIGENDIAN
+  return ((((uint32_t)word1) << 16) | ((uint32_t)word2));
+#else
   return ((((uint32_t)word2) << 16) | ((uint32_t)word1));
+#endif
 }
 
 /** Write 1 raw long (4 byte, BE).
@@ -431,9 +453,14 @@ void
 bit_write_RL (Bit_Chain *dat, BITCODE_RL value)
 {
   const uint32_t l = value;
+#ifdef WORDS_BIGENDIAN
+  bit_write_RS (dat, l >> 16);
+  bit_write_RS (dat, l & 0xFFFF);
+#else
   // least significant word first:
   bit_write_RS (dat, l & 0xFFFF);
   bit_write_RS (dat, l >> 16);
+#endif
 }
 
 /** Read 1 raw long (4 byte, LE).
@@ -446,7 +473,11 @@ bit_read_RL_LE (Bit_Chain *dat)
   // most significant word first
   word1 = bit_read_RS_LE (dat);
   word2 = bit_read_RS_LE (dat);
+#ifdef WORDS_BIGENDIAN
+  return ((((uint32_t)word2) << 16) | ((uint32_t)word1));
+#else
   return ((((uint32_t)word1) << 16) | ((uint32_t)word2));
+#endif
 }
 
 /** Write 1 raw long (4 byte, LE).
@@ -454,9 +485,14 @@ bit_read_RL_LE (Bit_Chain *dat)
 void
 bit_write_RL_LE (Bit_Chain *dat, BITCODE_RL value)
 {
+#ifdef WORDS_BIGENDIAN
+  bit_write_RS_LE (dat, value & 0xFFFF);
+  bit_write_RS_LE (dat, value >> 16);
+#else
   // most significant word first:
   bit_write_RS_LE (dat, value >> 16);
   bit_write_RS_LE (dat, value & 0xFFFF);
+#endif
 }
 
 /** Read 1 raw 64bit long (8 byte, BE).
@@ -469,7 +505,11 @@ bit_read_RLL (Bit_Chain *dat)
   // least significant word first
   word1 = bit_read_RL (dat);
   word2 = bit_read_RL (dat);
+#ifdef WORDS_BIGENDIAN
+  return ((((uint64_t)word1) << 32) | ((uint64_t)word2));
+#else
   return ((((uint64_t)word2) << 32) | ((uint64_t)word1));
+#endif
 }
 
 /** Write 1 raw 64bit long  (8 byte, BE).
@@ -477,9 +517,14 @@ bit_read_RLL (Bit_Chain *dat)
 void
 bit_write_RLL (Bit_Chain *dat, BITCODE_RLL value)
 {
+#ifdef WORDS_BIGENDIAN
+  bit_write_RL (dat, value >> 32);
+  bit_write_RL (dat, value & 0xFFFFFFFF);
+#else
   // least significant word first
   bit_write_RL (dat, value & 0xFFFFFFFF);
   bit_write_RL (dat, value >> 32);
+#endif
 }
 
 /** Read 1 raw double (8 bytes, IEEE-754).
@@ -491,11 +536,14 @@ bit_read_RD (Bit_Chain *dat)
   unsigned char byte[8];
   double *result;
 
-  // TODO: I think it might not work on big-endian platforms:
   for (i = 0; i < 8; i++)
     byte[i] = bit_read_RC (dat);
 
+#ifdef WORDS_BIGENDIAN
+  result = (double *)htole64(byte);
+#else
   result = (double *)byte;
+#endif
   return (*result);
 }
 
@@ -507,9 +555,10 @@ bit_write_RD (Bit_Chain *dat, double value)
   int i;
   unsigned char *val;
 
-  // TODO: I think it might not work on big-endian platforms:
   val = (unsigned char *)&value;
-
+#ifdef WORDS_BIGENDIAN
+  val = htole64(val);
+#endif
   for (i = 0; i < 8; i++)
     bit_write_RC (dat, val[i]);
 }
@@ -680,6 +729,9 @@ bit_read_BLL (Bit_Chain *dat)
           result <<= 8;
           result |= bit_read_RC (dat);
         }
+#ifdef WORDS_BIGENDIAN
+      return htole64(result);
+#endif
       return result;
     }
 }
@@ -700,6 +752,9 @@ bit_read_3BLL (Bit_Chain *dat)
       result <<= 8;
       result |= bit_read_RC (dat);
     }
+#ifdef WORDS_BIGENDIAN
+  return htole64(result);
+#endif
   return result;
 }
 
@@ -724,9 +779,13 @@ bit_write_BLL (Bit_Chain *dat, BITCODE_BLL value)
   bit_write_B (dat, len & 1);
   for (i = 0; i < len; i++)
     {
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
       // least significant byte first
       bit_write_RC (dat, value & 0xFF);
       value >>= 8;
+#endif
     }
 }
 void
@@ -747,9 +806,13 @@ bit_write_3BLL (Bit_Chain *dat, BITCODE_BLL value)
   bit_write_3B (dat, len);
   for (i = 0; i < len; i++)
     {
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
       // least significant byte first
       bit_write_RC (dat, value & 0xFF);
       value >>= 8;
+#endif
     }
 }
 
@@ -1054,6 +1117,9 @@ bit_read_DD (Bit_Chain *dat, double default_value)
     return (bit_read_RD (dat));
   if (two_bit_code == 2)
     {
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
       uchar_result = (unsigned char *)&default_value;
       uchar_result[4] = bit_read_RC (dat);
       uchar_result[5] = bit_read_RC (dat);
@@ -1061,17 +1127,21 @@ bit_read_DD (Bit_Chain *dat, double default_value)
       uchar_result[1] = bit_read_RC (dat);
       uchar_result[2] = bit_read_RC (dat);
       uchar_result[3] = bit_read_RC (dat);
+#endif
 
       return default_value;
     }
   else /* if (two_bit_code == 1) */
     {
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
       uchar_result = (unsigned char *)&default_value;
       uchar_result[0] = bit_read_RC (dat);
       uchar_result[1] = bit_read_RC (dat);
       uchar_result[2] = bit_read_RC (dat);
       uchar_result[3] = bit_read_RC (dat);
-
+#endif
       return default_value;
     }
 }
@@ -1098,20 +1168,28 @@ bit_write_DD (Bit_Chain *dat, double value, double default_value)
           if (uint_value[1] != uint_default[1])
             {
               bit_write_BB (dat, 2);
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
               bit_write_RC (dat, uchar_value[4]);
               bit_write_RC (dat, uchar_value[5]);
               bit_write_RC (dat, uchar_value[0]);
               bit_write_RC (dat, uchar_value[1]);
               bit_write_RC (dat, uchar_value[2]);
               bit_write_RC (dat, uchar_value[3]);
+#endif
             }
           else
             {
               bit_write_BB (dat, 1);
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
               bit_write_RC (dat, uchar_value[0]);
               bit_write_RC (dat, uchar_value[1]);
               bit_write_RC (dat, uchar_value[2]);
               bit_write_RC (dat, uchar_value[3]);
+#endif
             }
         }
       else
@@ -1170,13 +1248,21 @@ bit_read_H (Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
       return DWG_ERR_INVALIDHANDLE;
     }
 
-  // TODO: little-endian only
-  // x86_64 gcc-9 miscompilation with val[i]: (%rbx) being dat+1
-#if defined(__GNUC__) && (__GNUC__ == 9) && (__GNUC_MINOR__ <= 2) \
-  && (SIZEOF_SIZE_T == 8)                                         \
-  && (defined(__x86_64__) || defined(__x86_64) || defined(_M_AMD64) || defined(_M_X64))
+#ifdef WORDS_BIGENDIAN
   {
-#warning x86_64 gcc-9.2 codegen is seriously broken! better use an older version
+    BITCODE_RC *restrict val;
+    val = (BITCODE_RC *)&(handle->value);
+    for (i = 0; i < handle->size; i++)
+      val[i] = bit_read_RC (dat);
+  }
+#else
+    // x86_64 gcc-9 miscompilation with val[i]: (%rbx) being dat+1
+#  if defined(__GNUC__) && (__GNUC__ == 9) && (__GNUC_MINOR__ <= 2)           \
+      && (SIZEOF_SIZE_T == 8)                                                 \
+      && (defined(__x86_64__) || defined(__x86_64) || defined(_M_AMD64)       \
+          || defined(_M_X64))
+  {
+#    warning x86_64 gcc-9.2 codegen is seriously broken! better use an older version
     BITCODE_RC *restrict val;
     val = (BITCODE_RC *)&(handle->value);
     for (i = handle->size - 1; i >= 0; i--)
@@ -1185,13 +1271,14 @@ bit_read_H (Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
         val[i] = c;
       }
   }
-#else
+#  else
   {
     BITCODE_RC *restrict val;
     val = (BITCODE_RC *)&(handle->value);
     for (i = handle->size - 1; i >= 0; i--)
       val[i] = bit_read_RC (dat);
   }
+#  endif
 #endif
 
   return 0;
@@ -1217,6 +1304,9 @@ bit_write_H (Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
       return;
     }
 
+#ifdef WORDS_BIGENDIAN
+  #error no BIGENDIAN yet
+#else
   // TODO: little-endian only. support sizes <= 8, not just 4
   memset (&val, 0, sizeof(val));
   val = (unsigned char *)&handle->value;
@@ -1230,6 +1320,7 @@ bit_write_H (Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
 
   for (; i >= 0; i--)
     bit_write_RC (dat, val[i]);
+#endif
 }
 
 /** Only read old 16bit CRC-numbers, without checking, only in order
