@@ -4005,6 +4005,11 @@ dwg_decode_entity (Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,
   LOG_TRACE ("handle: " FORMAT_H " [H 5]\n", ARGS_H (obj->handle))
 
   PRE (R_13) { return DWG_ERR_NOTYETSUPPORTED; }
+  if (!obj->bitsize)
+    {
+      LOG_ERROR ("Invalid entity bitsize 0");
+      return error | DWG_ERR_INTERNALERROR;
+    }
 
   error |= dwg_decode_eed (dat, (Dwg_Object_Object *)ent);
   if (error & (DWG_ERR_INVALIDEED | DWG_ERR_VALUEOUTOFBOUNDS))
@@ -4099,6 +4104,11 @@ dwg_decode_object (Bit_Chain *dat, Bit_Chain *hdl_dat, Bit_Chain *str_dat,
         error |= DWG_ERR_VALUEOUTOFBOUNDS;
       }
   }
+  if (!obj->bitsize)
+    {
+      LOG_ERROR ("Invalid object bitsize 0");
+      return error | DWG_ERR_INTERNALERROR;
+    }
   // documentation bug, same BL type as with entity
   FIELD_BL (num_reactors, 0);
   SINCE (R_2010)
