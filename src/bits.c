@@ -777,15 +777,13 @@ bit_write_BLL (Bit_Chain *dat, BITCODE_BLL value)
     }
   bit_write_BB (dat, len << 2);
   bit_write_B (dat, len & 1);
+#ifdef WORDS_BIGENDIAN
+  value = htole64(value);
+#endif
   for (i = 0; i < len; i++)
     {
-#ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
-#else
-      // least significant byte first
       bit_write_RC (dat, value & 0xFF);
       value >>= 8;
-#endif
     }
 }
 void
@@ -804,15 +802,14 @@ bit_write_3BLL (Bit_Chain *dat, BITCODE_BLL value)
         }
     }
   bit_write_3B (dat, len);
+#ifdef WORDS_BIGENDIAN
+  value = htole64(value);
+#endif
   for (i = 0; i < len; i++)
     {
-#ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
-#else
       // least significant byte first
       bit_write_RC (dat, value & 0xFF);
       value >>= 8;
-#endif
     }
 }
 
@@ -1117,8 +1114,14 @@ bit_read_DD (Bit_Chain *dat, double default_value)
     return (bit_read_RD (dat));
   if (two_bit_code == 2)
     {
+      uchar_result = (unsigned char *)&default_value;
 #ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
+      uchar_result[5] = bit_read_RC (dat);
+      uchar_result[4] = bit_read_RC (dat);
+      uchar_result[3] = bit_read_RC (dat);
+      uchar_result[2] = bit_read_RC (dat);
+      uchar_result[1] = bit_read_RC (dat);
+      uchar_result[0] = bit_read_RC (dat);
 #else
       uchar_result = (unsigned char *)&default_value;
       uchar_result[4] = bit_read_RC (dat);
@@ -1133,10 +1136,13 @@ bit_read_DD (Bit_Chain *dat, double default_value)
     }
   else /* if (two_bit_code == 1) */
     {
-#ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
-#else
       uchar_result = (unsigned char *)&default_value;
+#ifdef WORDS_BIGENDIAN
+      uchar_result[3] = bit_read_RC (dat);
+      uchar_result[2] = bit_read_RC (dat);
+      uchar_result[1] = bit_read_RC (dat);
+      uchar_result[0] = bit_read_RC (dat);
+#else
       uchar_result[0] = bit_read_RC (dat);
       uchar_result[1] = bit_read_RC (dat);
       uchar_result[2] = bit_read_RC (dat);
@@ -1183,7 +1189,10 @@ bit_write_DD (Bit_Chain *dat, double value, double default_value)
             {
               bit_write_BB (dat, 1);
 #ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
+              bit_write_RC (dat, uchar_value[3]);
+              bit_write_RC (dat, uchar_value[2]);
+              bit_write_RC (dat, uchar_value[1]);
+              bit_write_RC (dat, uchar_value[0]);
 #else
               bit_write_RC (dat, uchar_value[0]);
               bit_write_RC (dat, uchar_value[1]);
@@ -1304,20 +1313,29 @@ bit_write_H (Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
       return;
     }
 
-#ifdef WORDS_BIGENDIAN
-  #error no BIGENDIAN yet
-#else
-  // TODO: little-endian only. support sizes <= 8, not just 4
   memset (&val, 0, sizeof(val));
   val = (unsigned char *)&handle->value;
+#ifdef WORDS_BIGENDIAN
+  // support sizes <= 8, not just 4
+  for (i = 0; i < sizeof(val); i++)
+    if (val[i])
+      break;
+#else
   for (i = sizeof(val) - 1; i >= 0; i--)
     if (val[i])
       break;
-
+#endif
   size = handle->code << 4;
   size |= i + 1;
   bit_write_RC (dat, size);
 
+#ifdef WORDS_BIGENDIAN
+  {
+    int j;
+    for (j = 0; j < i; j++)
+      bit_write_RC (dat, val[j]);
+  }
+#else
   for (; i >= 0; i--)
     bit_write_RC (dat, val[i]);
 #endif
